@@ -3,8 +3,37 @@
   <head>
     <meta charset="utf-8">
     <title></title>
+    <style>
+      .strong {
+        font-weight: bold;
+      }
+    </style>
   </head>
   <body>
+    <div id="app"></div>
+
+    <template id="test">
+      <h1 class="title">{{ title }}</h1>
+      <div data-author="{{ author }}">{{ description }}</div>
+      <div>
+        before: {{ part }}
+        <span class="strong">strong: {{ part }}</span>
+        after: {{ part }}
+      </div>
+    </template>
+
     <script src="../../dist/template.min.js"></script>
+    <script>
+      const app = new Template({
+        mount: 'app',
+        name: 'test',
+        data: {
+          title: 'Template',
+          author: 'flatten-js',
+          description: 'A template is a template.',
+          part: 'Template'
+        }
+      })
+    </script>
   </body>
 </html>
