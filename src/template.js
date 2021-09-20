@@ -4,7 +4,7 @@ class Template {
   constructor(options = {}) {
     this._options = options
     this._template = this._fetch(options.name)
-    this._data = this._proxy(options.data)
+    this._data = this._scope(options)
     this._binds = this._parse(this.template)
 
     this._init(options.mount)
@@ -31,6 +31,12 @@ class Template {
     return this._dependencies($template)
   }
 
+  _value(key, called) {
+    let value = this._data[key]
+    value = typeof value == 'function' ? value.bind(this._data) : value
+    return called ? value() : value
+  }
+
   _update(key, _document = document) {
     const target = this._binds.result[key]
     if (!target) return
@@ -39,7 +45,8 @@ class Template {
       const $ = _document.querySelector(`[data-${nanoid}]`)
 
       target[nanoid].forEach(data => {
-        const value = data.value.replace(data.replace, this._data[key])
+        let value = this._value(key, data.called)
+        value = data.value.replace(data.replace, value.toString())
 
         switch (data.type) {
           case 'attr':
@@ -56,7 +63,13 @@ class Template {
     return _document
   }
 
-  _proxy(data = {}) {
+  _scope(options) {
+    const data = {
+      ...options.data,
+      ...options.methods,
+      // Do
+    }
+
     return new Proxy(data, {
       set: (target, k, v) => {
         target[k] = v
@@ -82,23 +95,41 @@ class Template {
     return `nano-${header()}${body()}`
   }
 
-  _parse_do(nanoid, acc, cur, type, i) {
+  _parse_do(nanoid, acc, cur, type, cb) {
     const value = type == 'attr' ? cur.value : cur.nodeValue
     if (!value) return acc
 
-    const match = value.match(/({{\s*([\w-]+)\s*}})/)
+    const re = /({{\s*([\w-]+)(\(\))?\s*}})/
+    const match = value.match(re)
     if (!match) return acc
 
-    const [replace, name] = match.slice(1)
-    if (!acc[name]) acc[name] = {}
-    if (!acc[name][nanoid]) acc[name][nanoid] = []
+    const [replace, key, called] = match.slice(1)
+    let data = { type, replace, value, key, called: !!called }
+    data = cb ? cb(data) : data
+    if (!data) return acc
 
-    const data = { type, replace, value }
-    if (type == 'attr') data.name = cur.name
-    if (type == 'text') data.i = i
+    if (!acc[key]) acc[key] = {}
+    if (!acc[key][nanoid]) acc[key][nanoid] = []
 
-    acc[name][nanoid].push(data)
+    acc[key][nanoid].push(data)
     return acc
+  }
+
+  _parse_listener($, name, data) {
+    const match = name.match(/data-on([\w]+)(\..*)*/)
+    const [type, _options] = match.slice(1)
+
+    let options = {}
+    if (_options) {
+      options = _options.split('.').slice(1)
+      options = options.reduce((acc, cur) => {
+        return { ...acc, [cur]: true }
+      }, {})
+    }
+
+    const handler = this._value(data.key, data.called)
+    $.addEventListener(type, handler, options)
+    $.removeAttribute(name)
   }
 
   _parse($, _result = {}) {
@@ -110,12 +141,16 @@ class Template {
         const parse_do = this._parse_do.bind(this, nanoid)
 
         acc = Array.from($cur.attributes).reduce((acc, cur) => {
-          return parse_do(acc, cur, 'attr')
+          const { name } = cur
+          return parse_do(acc, cur, 'attr', data => {
+            if (name.slice(0, 7) != 'data-on') return { ...data, name }
+            this._parse_listener($cur, name, data)
+          })
         }, acc)
 
         acc = Array.from($cur.childNodes).reduce((acc, cur, i) => {
           if (cur.nodeType != Node.TEXT_NODE) return acc
-          return parse_do(acc, cur, 'text', i)
+          return parse_do(acc, cur, 'text', data => ({ ...data, i }))
         }, acc)
 
         return this._parse($cur, acc).result

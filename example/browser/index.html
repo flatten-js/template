@@ -4,36 +4,86 @@
     <meta charset="utf-8">
     <title></title>
     <style>
-      .strong {
-        font-weight: bold;
+      section {
+        margin-bottom: 1rem;
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <h1>Template Example</h1>
+    </div>
 
-    <template id="test">
-      <h1 class="title">{{ title }}</h1>
-      <div data-author="{{ author }}">{{ description }}</div>
-      <div>
-        before: {{ part }}
-        <span class="strong">strong: {{ part }}</span>
-        after: {{ part }}
-      </div>
+    <template id="base">
+      <section class="base">
+        <h2>Base</h2>
+        <div>Data Bindings(message -> node): {{ message }}</div>
+        <div>
+          Data Bindings(message -> multiple node):
+          before: {{ message }},
+          <span>{{ message }} in span</span>,
+          after: {{ message }}
+        </div>
+        <div data-message="{{ message }}">Data Bindings(message -> attr): this attr(data-message)</div>
+        <div>Data Bindings(greet method(call) -> el): {{ greet() }}</div>
+        <div>Data Bindings(greet method -> el): {{ greet }}</div>
+      </section>
+    </template>
+
+    <template id="counter">
+      <section class="counter">
+        <h2>Counter No.{{ no }}</h2>
+        <div>count: {{ count }}</div>
+        <div>
+          Spec:
+          min = <span class="strong">{{ min }}</span>,
+          max = <span class="strong">{{ max }}</span>
+        </div>
+        <button data-onclick.once="{{ increment }}">increment(click.once)</button>
+        <button data-onclick="{{ increment }}">increment(click)</button>
+        <button data-ondblclick="{{ decrement }}">decrement(dblclick)</button>
+      </section>
     </template>
 
     <script src="../../dist/template.min.js"></script>
     <script>
-      const app = new Template({
+      const base = new Template({
         mount: 'app',
-        name: 'test',
+        name: 'base',
         data: {
-          title: 'Template',
-          author: 'flatten-js',
-          description: 'A template is a template.',
-          part: 'Template'
+          message: '(Message in Data)'
+        },
+        methods: {
+          _greet() {
+            return 'Hello'
+          },
+          greet() {
+            return this._greet()
+          }
         }
-      })
+      });
+
+      [{ min: -10, max: 0 }, { min: 0, max: 10 }].forEach((data, i) => {
+        const counter = new Template({
+          mount: 'app',
+          name: 'counter',
+          data: {
+            count: 0,
+            ...data,
+            no: i + 1
+          },
+          methods: {
+            increment() {
+              if (this.count == this.max) return
+              this.count += 1
+            },
+            decrement() {
+              if (this.count == this.min) return
+              this.count -= 1
+            }
+          }
+        })
+      });
     </script>
   </body>
 </html>
